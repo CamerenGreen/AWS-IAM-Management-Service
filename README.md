@@ -74,6 +74,3 @@ Run the tests (they use moto to mock AWS):
 ```powershell
 pytest -q
 ```
-
-Notes
-- This is a minimal example. For production, add secure authentication, request throttling, proper error handling, and stricter validation.
