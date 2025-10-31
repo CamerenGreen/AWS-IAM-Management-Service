@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from typing import Any, Dict
 from .schemas import (
     UserCreate,
@@ -7,9 +7,12 @@ from .schemas import (
     AttachPolicyRequest,
     GroupCreate,
     AddUserToGroupRequest,
+    PolicyFromFile,
 )
 from .services.iam_service import IAMService
 import os
+import json
+from pathlib import Path
 
 router = APIRouter()
 
@@ -51,6 +54,54 @@ def create_policy(payload: PolicyCreate, svc: IAMService = Depends(get_iam_servi
     try:
         p = svc.create_policy(payload.name, payload.policy_document, payload.description)
         return ActionResponse(success=True, message="Policy created", data={"policy": p})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/policies/upload", response_model=ActionResponse)
+def upload_policy_json(file: UploadFile = File(...)):
+    """Upload a JSON policy file and save it under `policies/` for later use.
+
+    Returns filename saved on disk.
+    """
+    try:
+        content = file.file.read()
+        # validate JSON
+        policy = json.loads(content)
+
+        policies_dir = Path("./policies")
+        policies_dir.mkdir(parents=True, exist_ok=True)
+
+        dest = policies_dir / file.filename
+        # write bytes back
+        with open(dest, "wb") as fh:
+            fh.write(content)
+
+        return ActionResponse(success=True, message="Policy JSON uploaded", data={"filename": str(dest)})
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/policies/from-file", response_model=ActionResponse)
+def create_policy_from_file(payload: PolicyFromFile, svc: IAMService = Depends(get_iam_service)):
+    """Create a managed IAM policy using a saved JSON file from `policies/` directory.
+    Body: { "name": "PolicyName", "filename": "sample.json" }
+    """
+    try:
+        policies_dir = Path("./policies")
+        file_path = policies_dir / payload.filename
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Policy file not found")
+
+        with open(file_path, "r", encoding="utf-8") as fh:
+            policy_doc = json.load(fh)
+
+        p = svc.create_policy(payload.name, policy_doc)
+        return ActionResponse(success=True, message="Policy created from file", data={"policy": p})
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

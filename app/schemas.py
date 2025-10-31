@@ -18,6 +18,11 @@ class PolicyCreate(BaseModel):
     policy_document: Dict[str, Any]
 
 
+class PolicyFromFile(BaseModel):
+    name: str = Field(..., min_length=1)
+    filename: str = Field(..., min_length=1)
+
+
 class AttachPolicyRequest(BaseModel):
     policy_arn: str
 
