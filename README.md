@@ -50,6 +50,24 @@ uvicorn app.main:app --reload --port 8000
 
 See `app/schemas.py` for payload shapes.
 
+Authentication
+--
+This service supports a simple API-key based protection for the `/api/*` endpoints.
+
+- To enable it set the `API_KEY` environment variable to a secret value.
+- Requests must then include a header `X-API-Key: <your-key>`.
+- If `API_KEY` is not set the auth dependency is a no-op (this makes local testing and the provided pytest tests unchanged).
+
+Example (PowerShell):
+
+```powershell
+$env:API_KEY = "my-secret-key"
+curl -H "X-API-Key: my-secret-key" http://127.0.0.1:8000/api/users
+```
+
+Notes
+- For production consider using OAuth/OpenID Connect or an API gateway with proper auth and rate limiting. The API key approach here is intended for small internal tooling and demos.
+
 Testing
 Run the tests (they use moto to mock AWS):
 
